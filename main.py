@@ -55,9 +55,10 @@ def main():
     return jsonify(response)
 
 
+elve = False
 def handle_dialog(req, res):
+    global elve
     user_id = req['session']['user_id']
-
     if req['session']['new']:
         # Это новый пользователь.
         # Инициализируем сессию и поприветствуем его.
@@ -68,8 +69,6 @@ def handle_dialog(req, res):
                 "Не хочу.",
                 "Не буду.",
                 "Отстань!",
-                "Я покупаю",
-                "Я куплю",
             ]
         }
         # Заполняем текст ответа
@@ -86,20 +85,47 @@ def handle_dialog(req, res):
     # Если он написал 'ладно', 'куплю', 'покупаю', 'хорошо',
     # то мы считаем, что пользователь согласился.
     # Подумайте, всё ли в этом фрагменте написано "красиво"?
-    if req['request']['original_utterance'].lower() in [
+    if elve and req['request']['original_utterance'].lower() in [
         'ладно',
         'куплю',
         'покупаю',
-        'хорошо'
+        'хорошо',
+        'я покупаю',
+        'я куплю'
     ]:
-        # Пользователь согласился, прощаемся.
-        res['response']['text'] = 'Слона можно найти на Яндекс.Маркете!'
+        res['response']['text'] = 'Кролика тоже можно найти на Яндекс.Маркете!'
         res['response']['end_session'] = True
         return
 
+    elif not elve and req['request']['original_utterance'].lower() in [
+        'ладно',
+        'куплю',
+        'покупаю',
+        'хорошо',
+        'я покупаю',
+        'я куплю'
+    ]:
+        # Пользователь согласился, прощаемся.
+        res['response']['text'] = 'Слона можно найти на Яндекс.Маркете!\nА теперь купи кролика!'
+        sessionStorage[user_id] = {
+            'suggests': [
+                "Не хочу.",
+                "Не буду.",
+                "Отстань!",
+            ]
+        }
+        res['response']['buttons'] = get_suggests(user_id)
+        elve = True
+        return
+
+
     # Если нет, то убеждаем его купить слона!
-    res['response']['text'] = \
-        f"Все говорят '{req['request']['original_utterance']}', а ты купи слона!"
+    if not elve:
+        res['response']['text'] = \
+            f"Все говорят '{req['request']['original_utterance']}', а ты купи слона!"
+    else:
+        res['response']['text'] = \
+            f"Все говорят '{req['request']['original_utterance']}', а ты купи кролика!"
     res['response']['buttons'] = get_suggests(user_id)
 
 
@@ -120,10 +146,24 @@ def get_suggests(user_id):
     # Если осталась только одна подсказка, предлагаем подсказку
     # со ссылкой на Яндекс.Маркет.
     if len(suggests) < 2:
+        if not elve:
+            url = "https://market.yandex.ru/search?text=слон"
+        else:
+            url = "https://market.yandex.ru/search?text=кролик"
         suggests.append({
             "title": "Ладно",
-            "url": "https://market.yandex.ru/search?text=слон",
-            "hide": True
+            "url": url,
+            "hide": False
+        })
+        suggests.append({
+            "title": "Я покупаю",
+            "url": url,
+            "hide": False
+        })
+        suggests.append({
+            "title": "Я куплю",
+            "url": url,
+            "hide": False
         })
 
     return suggests
